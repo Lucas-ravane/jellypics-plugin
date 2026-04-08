@@ -16,7 +16,7 @@ Plugin Jellyfin pour l'application **JellyPics** (Android / Windows).
 1. Dashboard Jellyfin → **Plugins** → **Repositories** → **+**
 2. Nom : `JellyPics`, URL :
    ```
-   https://raw.githubusercontent.com/VOTRE_USERNAME/jellypics-plugin/main/manifest.json
+   https://raw.githubusercontent.com/Lucas-ravane/jellypics-plugin/main/manifest.json
    ```
 3. **Catalog** → chercher **JellyPics Upload** → **Install**
 4. Redémarrer Jellyfin
