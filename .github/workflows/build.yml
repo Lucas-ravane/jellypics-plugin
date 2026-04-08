@@ -1,0 +1,99 @@
+name: Build & Release
+
+on:
+  push:
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore src/JellyPics.Plugin/JellyPics.Plugin.csproj
+
+      - name: Build
+        run: |
+          dotnet build src/JellyPics.Plugin/JellyPics.Plugin.csproj \
+            -c Release -o artifacts --no-restore
+
+      - name: Package ZIP
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          cd artifacts
+          zip ../JellyPics.Plugin.zip JellyPics.Plugin.dll MetadataExtractor.dll \
+            MetadataExtractor.Formats.*.dll XmpCore.dll 2>/dev/null || true
+          # Au minimum le DLL principal
+          ls -la ../JellyPics.Plugin.zip
+
+      - name: Calculate MD5 & update manifest
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          MD5=$(md5sum JellyPics.Plugin.zip | cut -d' ' -f1)
+          DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          REPO="${{ github.repository }}"
+          
+          # Met à jour le manifest avec les vraies valeurs
+          cat > manifest.json << MANIFEST
+          [
+              {
+                  "guid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                  "name": "JellyPics Upload",
+                  "description": "Plugin d'import photo/video pour l'app JellyPics. Conserve les metadonnees temporelles (EXIF/container) lors de l'import.",
+                  "overview": "Import de photos et videos depuis l'app JellyPics avec conservation des metadonnees. Requiert ffmpeg sur le serveur pour la mise a jour des containers video.",
+                  "owner": "${{ github.repository_owner }}",
+                  "category": "Media Management",
+                  "versions": [
+                      {
+                          "version": "${VERSION}.0",
+                          "changelog": "Release ${VERSION}",
+                          "targetAbi": "10.9.0.0",
+                          "sourceUrl": "https://github.com/${REPO}/releases/download/v${VERSION}/JellyPics.Plugin.zip",
+                          "checksum": "${MD5}",
+                          "timestamp": "${DATE}"
+                      }
+                  ]
+              }
+          ]
+          MANIFEST
+          
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "MD5=$MD5" >> $GITHUB_ENV
+
+      - name: Commit manifest mis à jour
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          git commit -m "chore: update manifest for v${{ env.VERSION }} (md5: ${{ env.MD5 }})"
+          git push origin HEAD:main
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: JellyPics.Plugin.zip
+          body: |
+            ## JellyPics Plugin v${{ env.VERSION }}
+            
+            ### Installation
+            Ajouter ce dépôt dans Jellyfin → Dashboard → Plugins → Repositories :
+            ```
+            https://raw.githubusercontent.com/${{ github.repository }}/main/manifest.json
+            ```
+            
+            ### MD5
+            `${{ env.MD5 }}`

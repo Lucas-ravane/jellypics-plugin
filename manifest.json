@@ -1,0 +1,20 @@
+[
+    {
+        "guid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "name": "JellyPics Upload",
+        "description": "Plugin d'import photo/video pour l'app JellyPics. Conserve les metadonnees temporelles (EXIF/container) lors de l'import. Permet de selectionner le dossier de destination.",
+        "overview": "Import de photos et videos depuis l'app JellyPics avec conservation des metadonnees. Requiert ffmpeg sur le serveur pour la mise a jour des containers video.",
+        "owner": "VOTRE_USERNAME",
+        "category": "Media Management",
+        "versions": [
+            {
+                "version": "1.0.0.0",
+                "changelog": "- Version initiale\n- Upload avec conservation des metadonnees temporelles\n- Browse bibliotheques et dossiers\n- Support MP4, MKV, MOV, AVI, WebM",
+                "targetAbi": "10.9.0.0",
+                "sourceUrl": "https://github.com/VOTRE_USERNAME/jellypics-plugin/releases/download/v1.0.0/JellyPics.Plugin.zip",
+                "checksum": "REMPLACE_PAR_MD5_DU_ZIP",
+                "timestamp": "2025-04-08T00:00:00Z"
+            }
+        ]
+    }
+]
