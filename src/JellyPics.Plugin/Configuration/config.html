@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JellyPics Upload</title>
+</head>
+<body>
+    <div id="JellyPicsConfigPage" data-role="page" class="page type-interior pluginConfigurationPage"
+         data-require="emby-input,emby-button,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+
+                <form id="JellyPicsConfigForm">
+                    <div class="sectionTitleContainer flex align-items-center">
+                        <h2 class="sectionTitle">JellyPics Upload</h2>
+                    </div>
+
+                    <div class="verticalSection">
+                        <p>
+                            Configurez le dossier de destination pour la synchronisation automatique
+                            depuis l'application JellyPics. Ce dossier doit exister sur le serveur
+                            et être inclus dans une médiathèque Jellyfin.
+                        </p>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="syncTargetPath">
+                            Dossier de synchronisation (chemin absolu sur le serveur)
+                        </label>
+                        <input id="syncTargetPath" name="syncTargetPath" type="text"
+                               is="emby-input"
+                               placeholder="Ex: /media/photos/sync  ou  D:\Photos\Sync" />
+                        <div class="fieldDescription">
+                            Les photos synchronisées depuis JellyPics arriveront dans ce dossier.
+                            Laissez vide si vous ne souhaitez utiliser que l'import sélectif.
+                        </div>
+                    </div>
+
+                    <div id="statusMessage" style="display:none; padding: 10px; margin: 10px 0; border-radius: 4px;"></div>
+
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block">
+                            <span>Enregistrer</span>
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            var JellyPicsConfig = {
+                pluginId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+
+                showStatus: function(msg, isError) {
+                    var el = document.getElementById('statusMessage');
+                    el.textContent = msg;
+                    el.style.display = 'block';
+                    el.style.backgroundColor = isError ? '#c0392b22' : '#27ae6022';
+                    el.style.color = isError ? '#e74c3c' : '#27ae60';
+                    el.style.border = '1px solid ' + (isError ? '#e74c3c' : '#27ae60');
+                    setTimeout(function() { el.style.display = 'none'; }, 4000);
+                },
+
+                loadConfig: function() {
+                    ApiClient.fetch({
+                        url: ApiClient.getUrl('Plugins/JellyPics/Config'),
+                        type: 'GET',
+                        dataType: 'json'
+                    }).then(function(config) {
+                        document.getElementById('syncTargetPath').value =
+                            config.syncTargetPath || '';
+                    }).catch(function() {
+                        JellyPicsConfig.showStatus('Erreur lors du chargement de la configuration.', true);
+                    });
+                },
+
+                saveConfig: function(e) {
+                    e.preventDefault();
+                    var path = document.getElementById('syncTargetPath').value.trim();
+
+                    ApiClient.fetch({
+                        url: ApiClient.getUrl('Plugins/JellyPics/Config'),
+                        type: 'PUT',
+                        data: JSON.stringify({ syncTargetPath: path }),
+                        contentType: 'application/json'
+                    }).then(function() {
+                        JellyPicsConfig.showStatus('Configuration enregistrée avec succès !', false);
+                    }).catch(function(err) {
+                        var msg = 'Erreur lors de la sauvegarde.';
+                        if (err && err.status === 400) {
+                            msg = 'Dossier introuvable sur le serveur. Vérifiez le chemin.';
+                        }
+                        JellyPicsConfig.showStatus(msg, true);
+                    });
+                }
+            };
+
+            document.getElementById('JellyPicsConfigPage').addEventListener('pageshow', function() {
+                JellyPicsConfig.loadConfig();
+            });
+
+            document.getElementById('JellyPicsConfigForm').addEventListener('submit',
+                JellyPicsConfig.saveConfig);
+        </script>
+    </div>
+</body>
+</html>
