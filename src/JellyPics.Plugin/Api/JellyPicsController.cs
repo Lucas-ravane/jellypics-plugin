@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using JellyPics.Plugin.Configuration;
 using JellyPics.Plugin.Helpers;
 using MediaBrowser.Controller.Library;
-using MediaBrowser.Model.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -80,10 +79,13 @@ public class JellyPicsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public ActionResult<object> GetLibraries()
     {
+        // CollectionType est une string dans les versions récentes de Jellyfin
+        // "homevideos" = photos/vidéos maison, "photos" = photos uniquement
         var libraries = _libraryManager
             .GetVirtualFolders()
-            .Where(f => f.CollectionType == CollectionTypeOptions.HomeVideos
-                     || f.CollectionType == CollectionTypeOptions.Photos)
+            .Where(f => f.CollectionType == "homevideos"
+                     || f.CollectionType == "photos"
+                     || string.IsNullOrEmpty(f.CollectionType))
             .Select(f => new
             {
                 id     = f.ItemId,
