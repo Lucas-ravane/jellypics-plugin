@@ -81,8 +81,11 @@
                     ApiClient.fetch({
                         url: ApiClient.getUrl('Plugins/JellyPics/Config'),
                         type: 'PUT',
-                        data: JSON.stringify({ syncTargetPath: path }),
-                        contentType: 'application/json'
+                        data: JSON.stringify({ SyncTargetPath: path }),
+                        contentType: 'application/json',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
                     }).then(function() {
                         JellyPicsConfig.showStatus('Configuration enregistrée avec succès !', false);
                     }).catch(function(err) {
