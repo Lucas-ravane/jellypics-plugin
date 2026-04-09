@@ -8,12 +8,12 @@
         "category": "Media Management",
         "versions": [
             {
-                "version": "1.0.6.0",
-                "changelog": "Release 1.0.6",
+                "version": "1.0.11.0",
+                "changelog": "Release 1.0.11",
                 "targetAbi": "10.9.0.0",
-                "sourceUrl": "https://github.com/Lucas-ravane/jellypics-plugin/releases/download/v1.0.6/JellyPics.Plugin.zip",
-                "checksum": "0fcac481685ea952c2d0714af06bc83b",
-                "timestamp": "2026-04-09T07:05:13Z"
+                "sourceUrl": "https://github.com/Lucas-ravane/jellypics-plugin/releases/download/v1.0.11/JellyPics.Plugin.zip",
+                "checksum": "96ccdb88db0cad04441014b57c33a90f",
+                "timestamp": "2026-04-09T08:00:07Z"
             }
         ]
     }
