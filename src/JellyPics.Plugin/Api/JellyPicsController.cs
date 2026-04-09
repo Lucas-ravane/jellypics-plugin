@@ -33,45 +33,36 @@ public class JellyPicsController : ControllerBase
     public ActionResult UpdateConfig([FromBody] UpdateConfigRequest? request)
     {
         if (request is null)
-            return BadRequest(new { error = "Corps de requête null (problème de désérialisation JSON)." });
+            return BadRequest(new { error = "Corps de requete null." });
 
         var path = (request.SyncTargetPath ?? string.Empty).Trim();
-        _logger.LogInformation("JellyPics: UpdateConfig appelé avec path="{Path}"", path);
+        _logger.LogInformation("JellyPics: UpdateConfig path=\"{Path}\"", path);
 
-        if (!string.IsNullOrEmpty(path))
+        if (!string.IsNullOrEmpty(path) && !Directory.Exists(path))
         {
-            if (!Directory.Exists(path))
+            try { Directory.CreateDirectory(path); }
+            catch (Exception ex)
             {
-                try { Directory.CreateDirectory(path); }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "JellyPics: Impossible de créer {Path}", path);
-                    return BadRequest(new
-                    {
-                        error = $"Impossible de créer le dossier : {ex.Message}"
-                    });
-                }
+                return BadRequest(new { error = "Impossible de creer le dossier : " + ex.Message });
             }
         }
 
         Plugin.Instance.Configuration.SyncTargetPath = path;
         Plugin.Instance.SaveConfiguration();
-        _logger.LogInformation("JellyPics: Configuration sauvegardée, SyncTargetPath="{Path}"", path);
         return NoContent();
     }
 
     [HttpGet("Libraries")]
     public ActionResult<object> GetLibraries()
     {
-        // On retourne toutes les bibliothèques — le client filtre côté app
         var libraries = _libraryManager
             .GetVirtualFolders()
             .Select(f => new
             {
-                id           = f.ItemId,
-                name         = f.Name,
-                collectionType = f.CollectionType?.ToString() ?? string.Empty,
-                paths        = f.Locations,
+                id = f.ItemId,
+                name = f.Name,
+                collectionType = f.CollectionType == null ? string.Empty : f.CollectionType.ToString(),
+                paths = f.Locations,
             })
             .ToList();
         return Ok(libraries);
@@ -82,15 +73,15 @@ public class JellyPicsController : ControllerBase
     {
         if (string.IsNullOrEmpty(path)) return BadRequest(new { error = "Chemin manquant." });
         if (path.Contains("..", StringComparison.Ordinal))
-            return BadRequest(new { error = "Chemin non autorisé." });
+            return BadRequest(new { error = "Chemin non autorise." });
         if (!Directory.Exists(path))
             return BadRequest(new { error = "Chemin introuvable." });
 
         var dirs = Directory.GetDirectories(path)
             .Select(d => new
             {
-                name        = Path.GetFileName(d),
-                fullPath    = d,
+                name = Path.GetFileName(d),
+                fullPath = d,
                 hasChildren = Directory.GetDirectories(d).Length > 0,
             })
             .OrderBy(d => d.name)
@@ -106,47 +97,46 @@ public class JellyPicsController : ControllerBase
         [FromHeader(Name = "X-Original-Date")] string? originalDateHeader)
     {
         if (file is null || file.Length == 0)
-            return BadRequest(new { error = "Aucun fichier reçu." });
+            return BadRequest(new { error = "Aucun fichier recu." });
 
         if (!string.IsNullOrEmpty(targetPath) &&
             targetPath.Contains("..", StringComparison.Ordinal))
-            return BadRequest(new { error = "Chemin non autorisé." });
+            return BadRequest(new { error = "Chemin non autorise." });
 
         var destination = targetPath ?? Plugin.Instance.Configuration.SyncTargetPath;
         if (string.IsNullOrEmpty(destination))
-            return BadRequest(new { error = "Dossier de destination non configuré." });
+            return BadRequest(new { error = "Dossier de destination non configure." });
 
         if (!Directory.Exists(destination))
         {
             try { Directory.CreateDirectory(destination); }
-            catch (Exception ex) { return BadRequest(new { error = $"Impossible de créer: {ex.Message}" }); }
+            catch (Exception ex) { return BadRequest(new { error = "Impossible de creer: " + ex.Message }); }
         }
 
         DateTime? originalDate = MetadataHelper.ParseClientDate(originalDateHeader);
 
         var safeName = Path.GetFileName(file.FileName)
             .Replace("..", "_", StringComparison.Ordinal).Trim();
-        if (string.IsNullOrEmpty(safeName)) safeName = $"{Guid.NewGuid()}.bin";
+        if (string.IsNullOrEmpty(safeName)) safeName = Guid.NewGuid().ToString() + ".bin";
 
         var destPath = Path.Combine(destination, safeName);
         if (System.IO.File.Exists(destPath))
         {
-            var ext  = Path.GetExtension(safeName);
+            var ext = Path.GetExtension(safeName);
             var stem = Path.GetFileNameWithoutExtension(safeName);
             destPath = Path.Combine(destination,
-                $"{stem}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}{ext}");
+                stem + "_" + DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString() + ext);
         }
 
         try
         {
-            // FileStream sans ConfigureAwait — c'est l'await CopyToAsync qui le porte
             await using var stream = new FileStream(destPath, FileMode.Create,
                 FileAccess.Write, FileShare.None, 65536, useAsync: true);
             await file.CopyToAsync(stream);
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { error = $"Erreur écriture: {ex.Message}" });
+            return StatusCode(500, new { error = "Erreur ecriture: " + ex.Message });
         }
 
         originalDate ??= MetadataHelper.ExtractOriginalDate(destPath);
@@ -154,8 +144,9 @@ public class JellyPicsController : ControllerBase
         if (originalDate.HasValue)
         {
             var extUpper = Path.GetExtension(safeName).ToUpperInvariant();
-            var isVideo  = extUpper is ".MP4" or ".M4V" or ".MOV" or ".MKV"
-                               or ".WEBM" or ".AVI" or ".3GP" or ".TS" or ".MTS";
+            var isVideo = extUpper == ".MP4" || extUpper == ".M4V" || extUpper == ".MOV"
+                       || extUpper == ".MKV" || extUpper == ".WEBM" || extUpper == ".AVI"
+                       || extUpper == ".3GP" || extUpper == ".TS" || extUpper == ".MTS";
             if (isVideo)
             {
                 var ok = VideoMetadataHelper.ApplyDateToVideoContainer(
@@ -170,11 +161,12 @@ public class JellyPicsController : ControllerBase
 
         return Ok(new
         {
-            fileName     = safeName,
-            path         = destPath,
-            originalDate = originalDate?.ToString("o",
-                System.Globalization.CultureInfo.InvariantCulture),
-            message      = "Import réussi.",
+            fileName = safeName,
+            path = destPath,
+            originalDate = originalDate.HasValue
+                ? originalDate.Value.ToString("o", System.Globalization.CultureInfo.InvariantCulture)
+                : null,
+            message = "Import reussi.",
         });
     }
 }
