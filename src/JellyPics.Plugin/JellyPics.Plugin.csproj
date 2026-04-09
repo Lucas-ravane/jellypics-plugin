@@ -3,10 +3,17 @@
     <TargetFramework>net8.0</TargetFramework>
     <AssemblyName>JellyPics.Plugin</AssemblyName>
     <RootNamespace>JellyPics.Plugin</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Nullable>enable</Nullable>
+    <AnalysisMode>All</AnalysisMode>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <WarningLevel>0</WarningLevel>
+    <NoWarn>CA1848,CA1308,CA1031,CA1062</NoWarn>
+    <Optimize>true</Optimize>
   </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Configuration/config.html" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Jellyfin.Model" Version="10.9.*" />

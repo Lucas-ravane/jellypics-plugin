@@ -21,5 +21,16 @@ public class Plugin : BasePlugin<Configuration.PluginConfiguration>, IHasWebPage
     public override Guid Id => Guid.Parse("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
     public override string Description => "Plugin d'import photo/video pour JellyPics.";
 
-    public IEnumerable<PluginPageInfo> GetPages() => [];
+    public IEnumerable<PluginPageInfo> GetPages()
+    {
+        return
+        [
+            new PluginPageInfo
+            {
+                Name = Name,
+                EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.config.html",
+                EnableInMainMenu = false,
+            }
+        ];
+    }
 }
