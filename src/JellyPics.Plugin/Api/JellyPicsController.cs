@@ -13,7 +13,7 @@ namespace JellyPics.Plugin.Api;
 
 [ApiController]
 [Route("Plugins/JellyPics")]
-[Authorize(Policy = "DefaultAuthorization")]
+[Authorize(Policy = "RequiresElevation")]
 public class JellyPicsController : ControllerBase
 {
     private readonly ILibraryManager _libraryManager;
@@ -32,12 +32,31 @@ public class JellyPicsController : ControllerBase
     [HttpPut("Config")]
     public ActionResult UpdateConfig([FromBody] UpdateConfigRequest? request)
     {
-        if (request is null) return BadRequest(new { error = "Corps de requête manquant." });
-        var path = request.SyncTargetPath ?? string.Empty;
-        if (!string.IsNullOrEmpty(path) && !Directory.Exists(path))
-            return BadRequest(new { error = $"Dossier introuvable: {path}" });
+        if (request is null)
+            return BadRequest(new { error = "Corps de requête null (problème de désérialisation JSON)." });
+
+        var path = (request.SyncTargetPath ?? string.Empty).Trim();
+        _logger.LogInformation("JellyPics: UpdateConfig appelé avec path="{Path}"", path);
+
+        if (!string.IsNullOrEmpty(path))
+        {
+            if (!Directory.Exists(path))
+            {
+                try { Directory.CreateDirectory(path); }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "JellyPics: Impossible de créer {Path}", path);
+                    return BadRequest(new
+                    {
+                        error = $"Impossible de créer le dossier : {ex.Message}"
+                    });
+                }
+            }
+        }
+
         Plugin.Instance.Configuration.SyncTargetPath = path;
         Plugin.Instance.SaveConfiguration();
+        _logger.LogInformation("JellyPics: Configuration sauvegardée, SyncTargetPath="{Path}"", path);
         return NoContent();
     }
 
