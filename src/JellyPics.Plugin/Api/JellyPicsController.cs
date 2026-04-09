@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using JellyPics.Plugin.Helpers;
 using MediaBrowser.Controller.Library;
-using MediaBrowser.Model.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -45,12 +44,16 @@ public class JellyPicsController : ControllerBase
     [HttpGet("Libraries")]
     public ActionResult<object> GetLibraries()
     {
+        // On retourne toutes les bibliothèques — le client filtre côté app
         var libraries = _libraryManager
             .GetVirtualFolders()
-            .Where(f => f.CollectionType == CollectionTypeOptions.HomeVideos
-                     || f.CollectionType == CollectionTypeOptions.Photos
-                     || f.CollectionType is null)
-            .Select(f => new { id = f.ItemId, name = f.Name, paths = f.Locations })
+            .Select(f => new
+            {
+                id           = f.ItemId,
+                name         = f.Name,
+                collectionType = f.CollectionType?.ToString() ?? string.Empty,
+                paths        = f.Locations,
+            })
             .ToList();
         return Ok(libraries);
     }
@@ -59,7 +62,6 @@ public class JellyPicsController : ControllerBase
     public ActionResult<object> GetFolders([FromQuery] string path)
     {
         if (string.IsNullOrEmpty(path)) return BadRequest(new { error = "Chemin manquant." });
-        // Sécurité : on refuse les chemins avec traversal
         if (path.Contains("..", StringComparison.Ordinal))
             return BadRequest(new { error = "Chemin non autorisé." });
         if (!Directory.Exists(path))
@@ -68,8 +70,8 @@ public class JellyPicsController : ControllerBase
         var dirs = Directory.GetDirectories(path)
             .Select(d => new
             {
-                name = Path.GetFileName(d),
-                fullPath = d,
+                name        = Path.GetFileName(d),
+                fullPath    = d,
                 hasChildren = Directory.GetDirectories(d).Length > 0,
             })
             .OrderBy(d => d.name)
@@ -87,7 +89,6 @@ public class JellyPicsController : ControllerBase
         if (file is null || file.Length == 0)
             return BadRequest(new { error = "Aucun fichier reçu." });
 
-        // Sécurité : refuse les chemins avec traversal
         if (!string.IsNullOrEmpty(targetPath) &&
             targetPath.Contains("..", StringComparison.Ordinal))
             return BadRequest(new { error = "Chemin non autorisé." });
@@ -99,7 +100,7 @@ public class JellyPicsController : ControllerBase
         if (!Directory.Exists(destination))
         {
             try { Directory.CreateDirectory(destination); }
-            catch (Exception ex) { return BadRequest(new { error = $"Impossible de créer le dossier: {ex.Message}" }); }
+            catch (Exception ex) { return BadRequest(new { error = $"Impossible de créer: {ex.Message}" }); }
         }
 
         DateTime? originalDate = MetadataHelper.ParseClientDate(originalDateHeader);
@@ -119,9 +120,10 @@ public class JellyPicsController : ControllerBase
 
         try
         {
+            // FileStream sans ConfigureAwait — c'est l'await CopyToAsync qui le porte
             await using var stream = new FileStream(destPath, FileMode.Create,
-                FileAccess.Write, FileShare.None, 65536, useAsync: true).ConfigureAwait(false);
-            await file.CopyToAsync(stream).ConfigureAwait(false);
+                FileAccess.Write, FileShare.None, 65536, useAsync: true);
+            await file.CopyToAsync(stream);
         }
         catch (Exception ex)
         {
@@ -132,12 +134,13 @@ public class JellyPicsController : ControllerBase
 
         if (originalDate.HasValue)
         {
-            var ext = Path.GetExtension(safeName).ToUpperInvariant();
-            var isVideo = ext is ".MP4" or ".M4V" or ".MOV" or ".MKV"
-                              or ".WEBM" or ".AVI" or ".3GP" or ".TS" or ".MTS";
+            var extUpper = Path.GetExtension(safeName).ToUpperInvariant();
+            var isVideo  = extUpper is ".MP4" or ".M4V" or ".MOV" or ".MKV"
+                               or ".WEBM" or ".AVI" or ".3GP" or ".TS" or ".MTS";
             if (isVideo)
             {
-                var ok = VideoMetadataHelper.ApplyDateToVideoContainer(destPath, originalDate.Value, _logger);
+                var ok = VideoMetadataHelper.ApplyDateToVideoContainer(
+                    destPath, originalDate.Value, _logger);
                 if (!ok) MetadataHelper.ApplyDateToFile(destPath, originalDate.Value);
             }
             else
@@ -150,7 +153,8 @@ public class JellyPicsController : ControllerBase
         {
             fileName     = safeName,
             path         = destPath,
-            originalDate = originalDate?.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
+            originalDate = originalDate?.ToString("o",
+                System.Globalization.CultureInfo.InvariantCulture),
             message      = "Import réussi.",
         });
     }
