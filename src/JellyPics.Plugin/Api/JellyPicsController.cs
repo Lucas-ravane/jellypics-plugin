@@ -90,7 +90,8 @@ public class JellyPicsController : ControllerBase
     }
 
     [HttpPost("Upload")]
-    [RequestSizeLimit(500_000_000)]
+    [DisableRequestSizeLimit]
+    [RequestFormLimits(MultipartBodyLengthLimit = long.MaxValue)]
     public async Task<ActionResult<object>> Upload(
         [FromForm] IFormFile? file,
         [FromForm] string? targetPath,
